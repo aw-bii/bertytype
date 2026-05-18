@@ -150,6 +150,34 @@ def test_llm_failure_falls_back_to_raw_text():
 
 
 # ---------------------------------------------------------------------------
+# LLM refinement failure notifies tray
+# ---------------------------------------------------------------------------
+
+def test_refinement_failure_notifies_tray(mocker):
+    """LLM failure during PTT transcription shows tray notification."""
+    from bertytype import __main__ as app
+    mocker.patch.object(app.capture, "start_recording", return_value=b"\x00" * 3200)
+    mocker.patch.object(app.vad, "trim_silence", return_value=b"\x00" * 3200)
+    mocker.patch.object(app.stt_engine, "transcribe", return_value="raw text")
+    mock_future = mocker.MagicMock()
+    mock_future.result.side_effect = RuntimeError("ollama down")
+    mocker.patch.object(app.llm_client, "refine_async", return_value=mock_future)
+    mock_inject = mocker.patch.object(app.injector, "inject")
+    mock_notify = mocker.patch.object(app.tray, "notify")
+    mocker.patch.object(app.tray, "set_status")
+
+    with app._cfg_lock:
+        app._cfg = app.cfg_module.Config(refine=True)
+    with app._health_lock:
+        app._health = {"vibevoice": True, "ollama": True}
+
+    app._capture_and_process()
+
+    mock_notify.assert_any_call(app.messages.ERROR_OLLAMA_UNAVAILABLE)
+    mock_inject.assert_called_once_with("raw text", app._cfg.injection_delay)
+
+
+# ---------------------------------------------------------------------------
 # STT failure surfaces as error status
 # ---------------------------------------------------------------------------
 

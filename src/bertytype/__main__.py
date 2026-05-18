@@ -45,6 +45,22 @@ def _on_cancel() -> None:
     _stop_event.set()
 
 
+def _apply_llm_refinement(text: str, cfg, health: dict) -> str:
+    """Returns LLM-refined text, or original text if refinement is disabled, unavailable, or fails."""
+    if not cfg.refine:
+        return text
+    if not health["ollama"]:
+        logger.info("Skipping refinement - Ollama unavailable")
+        return text
+    try:
+        future = llm_client.refine_async(text, "clean_up", cfg.model, cfg.llm_timeout)
+        return future.result(timeout=cfg.llm_timeout + 5)
+    except Exception as e:
+        logger.warning(f"LLM refinement failed: {e}")
+        tray.notify(messages.ERROR_OLLAMA_UNAVAILABLE)
+        return text
+
+
 def _capture_and_process() -> None:
     with _health_lock:
         health = _health.copy()
@@ -61,15 +77,7 @@ def _capture_and_process() -> None:
             tray.set_status("idle")
             return
         text = stt_engine.transcribe(audio)
-        if cfg.refine and health["ollama"]:
-            try:
-                future = llm_client.refine_async(text, "clean_up", cfg.model, cfg.llm_timeout)
-                text = future.result(timeout=cfg.llm_timeout + 5)
-            except Exception as e:
-                logger.warning(f"LLM refinement failed: {e}")
-                tray.notify(messages.ERROR_OLLAMA_UNAVAILABLE)
-        elif cfg.refine and not health["ollama"]:
-            logger.info("Skipping refinement - Ollama unavailable")
+        text = _apply_llm_refinement(text, cfg, health)
         try:
             injector.inject(text, cfg.injection_delay)
         except Exception as e:
@@ -110,14 +118,7 @@ def _do_file_transcription(path: Path) -> None:
             tray.notify(messages.ERROR_FILE_READ_FAILED)
             return
         text = stt_engine.transcribe(audio)
-        if cfg.refine and health["ollama"]:
-            try:
-                future = llm_client.refine_async(text, "clean_up", cfg.model, cfg.llm_timeout)
-                text = future.result(timeout=cfg.llm_timeout + 5)
-            except Exception as e:
-                logger.warning(f"LLM refinement failed: {e}")
-        elif cfg.refine and not health["ollama"]:
-            logger.info("Skipping refinement - Ollama unavailable")
+        text = _apply_llm_refinement(text, cfg, health)
         out_path = exporter.save_transcript(text, path)
         pyperclip.copy(text)
         tray.notify(messages.INFO_TRANSCRIPTION_COMPLETE.format(name=out_path.name))
