@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import subprocess
 from pathlib import Path
 
@@ -23,11 +24,17 @@ def is_model_pulled(model: str = "gemma4:e2b") -> bool:
     try:
         import requests
         resp = requests.get("http://localhost:11434/api/tags", timeout=3)
-        if resp.status_code != 200:
-            return False
-        names = [m["name"] for m in resp.json().get("models", [])]
-        return model in names
-    except Exception:
+        try:
+            if resp.status_code != 200:
+                return False
+            names = [m["name"] for m in resp.json().get("models", [])]
+            return model in names
+        finally:
+            resp.close()
+    except requests.exceptions.ConnectionError:
+        return False
+    except Exception as e:
+        logging.debug("is_model_pulled check failed: %s", e)
         return False
 
 
