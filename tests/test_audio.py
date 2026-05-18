@@ -146,3 +146,15 @@ def test_trim_silence_passthrough_when_all_active():
     audio = (np.ones(3200, dtype=np.int16) * 20000).tobytes()
     result = vad.trim_silence(audio, threshold=0.02)
     assert result == audio
+
+
+def test_read_file_raises_valueerror_on_missing_file(tmp_path):
+    with pytest.raises(ValueError, match="Cannot access"):
+        reader.read_file(tmp_path / "nonexistent.wav")
+
+
+def test_read_file_raises_valueerror_on_corrupt_file(tmp_path):
+    bad = tmp_path / "bad.wav"
+    bad.write_bytes(b"not audio data at all 12345")
+    with pytest.raises(ValueError, match="Could not decode"):
+        reader.read_file(bad)
