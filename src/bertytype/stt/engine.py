@@ -1,5 +1,6 @@
 from typing import Callable
 
+# Set once in main() before worker threads start. Not safe to reassign after threads launch.
 _backend: Callable[[bytes], str] | None = None
 
 
