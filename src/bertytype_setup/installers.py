@@ -11,10 +11,10 @@ from typing import Optional
 
 import requests
 
+from bertytype_setup.constants import MODEL, VIBEVOICE_REPO
+
 OLLAMA_DOWNLOAD_URL = "https://ollama.com/download/OllamaSetup.exe"
 OLLAMA_API = "http://localhost:11434"
-MODEL = "gemma4:e2b"
-VIBEVOICE_REPO = "microsoft/VibeVoice-ASR-HF"
 
 _ollama_proc: Optional[subprocess.Popen] = None
 

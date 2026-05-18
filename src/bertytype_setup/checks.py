@@ -3,6 +3,8 @@ import logging
 import subprocess
 from pathlib import Path
 
+from bertytype_setup.constants import MODEL
+
 
 def _hf_cache_root() -> Path:
     return Path.home() / ".cache" / "huggingface" / "hub"
@@ -20,7 +22,7 @@ def is_ollama_installed() -> bool:
         return False
 
 
-def is_model_pulled(model: str = "gemma4:e2b") -> bool:
+def is_model_pulled(model: str = MODEL) -> bool:
     try:
         import requests
         resp = requests.get("http://localhost:11434/api/tags", timeout=3)
