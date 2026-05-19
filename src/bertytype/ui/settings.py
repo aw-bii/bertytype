@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QSlider, QLineEdit, QPushButton, QFrame,
 )
 from bertytype.config import Config, _is_safe_model_name, _VALID_HOTKEY_MODES
+from bertytype.ui.tokens import TEXT_SECONDARY
 
 
 def _qks_to_str(ks: QKeySequence) -> str:
@@ -30,6 +31,7 @@ class _SettingsDialog(QDialog):
         self.setMinimumSize(480, 400)
         self._on_save = on_save
         self._build_ui(cfg)
+        self._hotkey_edit.setFocus()
 
     def _build_ui(self, cfg: Config) -> None:
         outer = QVBoxLayout(self)
@@ -48,14 +50,17 @@ class _SettingsDialog(QDialog):
         self._mode_combo = QComboBox()
         self._mode_combo.addItems(sorted(_VALID_HOTKEY_MODES))
         self._mode_combo.setCurrentText(cfg.hotkey_mode)
+        self._mode_combo.setToolTip("ptt: hold to record / double_tap_toggle: tap twice to toggle recording")
         form.addRow("Recording Mode", self._mode_combo)
 
         self._hotkey_edit = QKeySequenceEdit(_str_to_qks(cfg.hotkey))
+        self._hotkey_edit.setToolTip("Press the key combination to use as your push-to-talk hotkey")
         form.addRow("Hotkey", self._hotkey_edit)
 
         self._dtw_slider = QSlider(Qt.Orientation.Horizontal)
         self._dtw_slider.setRange(5, 200)
         self._dtw_slider.setValue(round(cfg.double_tap_window * 100))
+        self._dtw_slider.setToolTip("Max time between two taps to trigger double-tap toggle (0.05 - 2.00s)")
         self._dtw_label = QLabel(f"{cfg.double_tap_window:.2f}s")
         self._dtw_slider.valueChanged.connect(
             lambda v: self._dtw_label.setText(f"{v / 100:.2f}s")
@@ -68,18 +73,22 @@ class _SettingsDialog(QDialog):
         form.addRow("Double-tap Window", dtw_row)
 
         self._cancel_edit = QKeySequenceEdit(_str_to_qks(cfg.cancel_hotkey))
+        self._cancel_edit.setToolTip("Press the key combination to cancel an in-progress recording")
         form.addRow("Cancel Hotkey", self._cancel_edit)
 
         self._model_edit = QLineEdit(cfg.model)
+        self._model_edit.setToolTip("Ollama model name for LLM refinement (e.g. gemma4:e2b)")
         form.addRow("LLM Model", self._model_edit)
 
         self._refine_check = QCheckBox()
         self._refine_check.setChecked(cfg.refine)
+        self._refine_check.setToolTip("Run transcribed text through the LLM to clean up filler words and punctuation")
         form.addRow("Refine with LLM", self._refine_check)
 
         self._vad_slider = QSlider(Qt.Orientation.Horizontal)
         self._vad_slider.setRange(0, 100)
         self._vad_slider.setValue(round(cfg.vad_threshold * 100))
+        self._vad_slider.setToolTip("Silence threshold for voice activity detection (0.00 = very sensitive, 1.00 = least sensitive)")
         self._vad_label = QLabel(f"{cfg.vad_threshold:.2f}")
         self._vad_slider.valueChanged.connect(
             lambda v: self._vad_label.setText(f"{v / 100:.2f}")
@@ -92,10 +101,17 @@ class _SettingsDialog(QDialog):
         form.addRow("VAD Threshold", vad_row)
 
         self._llm_to_edit = QLineEdit(str(cfg.llm_timeout))
+        self._llm_to_edit.setToolTip("Seconds to wait for LLM response before timing out (1 - 600)")
         form.addRow("LLM Timeout", self._llm_to_edit)
 
         self._delay_edit = QLineEdit(str(cfg.injection_delay))
+        self._delay_edit.setToolTip("Seconds to wait after focusing target window before injecting text (0.0 - 5.0)")
         form.addRow("Injection Delay", self._delay_edit)
+
+        for row in range(form.rowCount()):
+            lbl_item = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
+            if lbl_item and lbl_item.widget():
+                lbl_item.widget().setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
 
         scroll.setWidget(form_widget)
         outer.addWidget(scroll, 1)
@@ -109,7 +125,7 @@ class _SettingsDialog(QDialog):
         self._error_lbl.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self._error_lbl.setAccessibleName("Error")
         footer_layout.addWidget(self._error_lbl, 1)
-        save_btn = QPushButton("Save Settings")
+        save_btn = QPushButton("SAVE SETTINGS")
         save_btn.setProperty("accent", True)
         save_btn.clicked.connect(self._save)
         footer_layout.addWidget(save_btn)

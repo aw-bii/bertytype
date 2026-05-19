@@ -1,38 +1,74 @@
 from __future__ import annotations
 from typing import Callable
-from PySide6.QtCore import QObject, Signal, Qt
+from PySide6.QtCore import QObject, QTimer, Signal, Qt
 from PySide6.QtGui import QIcon, QPainter, QPixmap, QColor
-from PySide6.QtWidgets import QSystemTrayIcon, QMenu
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from bertytype.ui.tokens import STATUS_COLORS as _STATUS_COLORS
 
 _BAR_HEIGHTS_BY_STATUS: dict[str, list[int]] = {
-    "idle": [16, 32, 48, 32, 16],
-    "recording": [52, 44, 52, 44, 52],
-    "processing": [12, 44, 28, 52, 20],
-    "error": [8, 8, 8, 8, 8],
+    "idle":       [16, 32, 48, 32, 16],
+    "recording":  [52, 44, 52, 44, 52],
+    "error":      [8,  8,  8,  8,  8],
 }
+
+# Animation frames for processing state - bars "cycle" left each tick
+_PROCESSING_FRAMES: list[list[int]] = [
+    [12, 44, 28, 52, 20],
+    [20, 12, 44, 28, 52],
+    [52, 20, 12, 44, 28],
+    [28, 52, 20, 12, 44],
+    [44, 28, 52, 20, 12],
+]
+
+_STATUS_LABELS: dict[str, str] = {
+    "idle":       "Idle - hold hotkey to record",
+    "recording":  "Recording...",
+    "processing": "Processing...",
+    "error":      "Error - check logs",
+}
+
 _BAR_WIDTH = 8
-_BAR_GAP = 4
-_CANVAS = 64
-_ICON_CACHE: dict[str, QIcon] = {}
+_BAR_GAP   = 4
+_CANVAS    = 64
+_ICON_CACHE: dict[tuple[str, float], QIcon] = {}
 
 
 class _TraySignals(QObject):
-    status_changed = Signal(str)
+    status_changed   = Signal(str)
     notify_requested = Signal(str)
 
 
-_signals = _TraySignals()
+_signals    = _TraySignals()
 _tray_icon: QSystemTrayIcon | None = None
-_status = "idle"
+_status     = "idle"
+_anim_frame = 0
+_anim_timer: QTimer | None = None
 
 
-def _make_icon(status: str) -> QIcon:
-    if status in _ICON_CACHE:
-        return _ICON_CACHE[status]
-    color_hex = _STATUS_COLORS.get(status, _STATUS_COLORS["idle"])
-    bar_heights = _BAR_HEIGHTS_BY_STATUS.get(status, _BAR_HEIGHTS_BY_STATUS["idle"])
-    px = QPixmap(_CANVAS, _CANVAS)
+def _dpr() -> float:
+    app = QApplication.instance()
+    if app:
+        screen = app.primaryScreen()
+        if screen:
+            return screen.devicePixelRatio()
+    return 1.0
+
+
+def _make_icon(status: str, frame: int = 0) -> QIcon:
+    dpr = _dpr()
+    cache_key = (f"{status}:{frame}", dpr)
+    if cache_key in _ICON_CACHE:
+        return _ICON_CACHE[cache_key]
+
+    color_hex = _STATUS_COLORS.get(status, _STATUS_COLORS["error"])
+    if status == "processing":
+        bar_heights = _PROCESSING_FRAMES[frame % len(_PROCESSING_FRAMES)]
+    else:
+        bar_heights = _BAR_HEIGHTS_BY_STATUS.get(status, _BAR_HEIGHTS_BY_STATUS["idle"])
+
+    size = int(_CANVAS * dpr)
+    px = QPixmap(size, size)
+    px.setDevicePixelRatio(dpr)
     px.fill(Qt.GlobalColor.transparent)
     painter = QPainter(px)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -46,15 +82,30 @@ def _make_icon(status: str) -> QIcon:
         painter.drawRoundedRect(x, y_top, _BAR_WIDTH, bar_h, 2, 2)
     painter.end()
     icon = QIcon(px)
-    _ICON_CACHE[status] = icon
+    _ICON_CACHE[cache_key] = icon
     return icon
 
 
+def _tick_animation() -> None:
+    global _anim_frame
+    if _tray_icon is None or _status != "processing":
+        return
+    _anim_frame = (_anim_frame + 1) % len(_PROCESSING_FRAMES)
+    _tray_icon.setIcon(_make_icon("processing", _anim_frame))
+
+
 def _on_status_changed(status: str) -> None:
-    global _status
+    global _status, _anim_frame
     _status = status
+    _anim_frame = 0
     if _tray_icon is not None:
         _tray_icon.setIcon(_make_icon(status))
+        _tray_icon.setToolTip(f"BertyType - {_STATUS_LABELS.get(status, status.capitalize())}")
+    if _anim_timer is not None:
+        if status == "processing":
+            _anim_timer.start(200)
+        else:
+            _anim_timer.stop()
 
 
 def _on_notify_requested(msg: str) -> None:
@@ -78,14 +129,12 @@ def start(
     on_quit: Callable[[], None],
 ) -> None:
     """Register the tray icon and return immediately (non-blocking)."""
-    global _tray_icon
+    global _tray_icon, _anim_timer
     _signals.status_changed.connect(
-        _on_status_changed,
-        Qt.ConnectionType.QueuedConnection | Qt.ConnectionType.UniqueConnection,
+        _on_status_changed, Qt.ConnectionType.QueuedConnection | Qt.ConnectionType.UniqueConnection
     )
     _signals.notify_requested.connect(
-        _on_notify_requested,
-        Qt.ConnectionType.QueuedConnection | Qt.ConnectionType.UniqueConnection,
+        _on_notify_requested, Qt.ConnectionType.QueuedConnection | Qt.ConnectionType.UniqueConnection
     )
     menu = QMenu()
     menu.addAction("Transcribe file...", on_transcribe_file)
@@ -94,14 +143,20 @@ def start(
     menu.addAction("Quit", on_quit)
     icon = QSystemTrayIcon()
     icon.setIcon(_make_icon("idle"))
-    icon.setToolTip("BertyType")
+    icon.setToolTip(f"BertyType - {_STATUS_LABELS['idle']}")
     icon.setContextMenu(menu)
     icon.show()
     _tray_icon = icon
+    _anim_timer = QTimer()
+    _anim_timer.setInterval(200)
+    _anim_timer.timeout.connect(_tick_animation)
 
 
 def stop() -> None:
-    global _tray_icon
+    global _tray_icon, _anim_timer
+    if _anim_timer is not None:
+        _anim_timer.stop()
+        _anim_timer = None
     if _tray_icon is not None:
         _tray_icon.hide()
         _tray_icon = None
