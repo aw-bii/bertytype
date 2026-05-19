@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass, asdict
 from pathlib import Path
+from typing import Any
 
 from bertytype import logging as log_module
 
@@ -29,7 +30,7 @@ class Config:
     injection_delay: float = 0.05
 
 
-def _validate_value(key: str, value, default):
+def _validate_value(key: str, value: Any, default: Any) -> Any:
     if key in ("hotkey", "cancel_hotkey"):
         if not isinstance(value, str) or not value.strip():
             logger.warning(f"Invalid {key}: {value!r}, using default {default!r}")

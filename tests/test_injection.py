@@ -69,3 +69,11 @@ def test_save_transcript_overwrites_existing(tmp_path):
     exporter.save_transcript("first", audio)
     exporter.save_transcript("second", audio)
     assert (tmp_path / "clip.txt").read_text(encoding="utf-8") == "second"
+
+
+def test_save_transcript_raises_runtime_on_write_failure(tmp_path, mocker):
+    import pytest
+    from bertytype.injection.exporter import save_transcript
+    mocker.patch("pathlib.Path.write_text", side_effect=PermissionError("read-only"))
+    with pytest.raises(RuntimeError, match="Could not save transcript"):
+        save_transcript("some text", tmp_path / "audio.wav")

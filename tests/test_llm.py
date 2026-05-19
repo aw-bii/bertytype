@@ -81,3 +81,24 @@ def test_get_prompt_sanitizes_input():
     assert "safe\x00" not in result
     assert "safe\x07" not in result
     assert "safetext" in result
+
+
+def test_refine_raises_runtime_on_connection_error(mocker):
+    mocker.patch("requests.post", side_effect=__import__("requests").ConnectionError)
+    with pytest.raises(RuntimeError, match="Cannot connect to Ollama"):
+        client.refine("hello", "clean_up", "gemma4:e2b")
+
+
+def test_refine_raises_runtime_on_timeout(mocker):
+    mocker.patch("requests.post", side_effect=__import__("requests").Timeout)
+    with pytest.raises(RuntimeError, match="timed out"):
+        client.refine("hello", "clean_up", "gemma4:e2b", timeout=5)
+
+
+def test_refine_raises_runtime_on_bad_response_format(mocker):
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {"unexpected": "key"}
+    mocker.patch("requests.post", return_value=mock_resp)
+    with pytest.raises(RuntimeError, match="Unexpected Ollama response"):
+        client.refine("hello", "clean_up", "gemma4:e2b")

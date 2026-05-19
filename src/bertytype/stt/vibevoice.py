@@ -52,29 +52,32 @@ def transcribe(audio: bytes, timeout: int = 60) -> str:
         "stream": True,
         "top_p": 1.0,
     }
-    resp = requests.post(VIBEVOICE_URL, json=payload, stream=True, timeout=timeout)
-    resp.raise_for_status()
-
-    accumulated = ""
-    for line in resp.iter_lines():
-        if not line:
-            continue
-        decoded = line.decode("utf-8")
-        if not decoded.startswith("data: "):
-            continue
-        json_str = decoded[6:]
-        if json_str.strip() == "[DONE]":
-            break
-        try:
-            data = json.loads(json_str)
-            content = data["choices"][0]["delta"].get("content", "")
-            if content:
-                # vLLM may send full accumulated text instead of incremental chunks
-                if content.startswith(accumulated):
-                    accumulated = content
-                else:
-                    accumulated += content
-        except (json.JSONDecodeError, KeyError, IndexError):
-            pass
-
+    # connect_timeout=10, read_timeout=timeout: prevents silent hangs if the
+    # server stops streaming mid-response after the connection is established.
+    resp = requests.post(VIBEVOICE_URL, json=payload, stream=True, timeout=(10, timeout))
+    try:
+        resp.raise_for_status()
+        accumulated = ""
+        for line in resp.iter_lines():
+            if not line:
+                continue
+            decoded = line.decode("utf-8")
+            if not decoded.startswith("data: "):
+                continue
+            json_str = decoded[6:]
+            if json_str.strip() == "[DONE]":
+                break
+            try:
+                data = json.loads(json_str)
+                content = data["choices"][0]["delta"].get("content", "")
+                if content:
+                    # vLLM may send full accumulated text instead of incremental chunks
+                    if content.startswith(accumulated):
+                        accumulated = content
+                    else:
+                        accumulated += content
+            except (json.JSONDecodeError, KeyError, IndexError):
+                pass
+    finally:
+        resp.close()
     return accumulated.strip()

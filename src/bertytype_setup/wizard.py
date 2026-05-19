@@ -10,12 +10,13 @@ from PySide6.QtWidgets import (
 )
 
 from bertytype_setup import checks, installers
+from bertytype_setup.constants import MODEL
 
 TITLE = "BertyType Setup"
 
 DEPS = [
     ("ollama",    "Ollama",              "~90 MB"),
-    ("model",     "gemma4:e2b model",    "~2 GB"),
+    ("model",     f"{MODEL} model",      "~2 GB"),
     ("vibevoice", "VibeVoice ASR model", "~1.5 GB"),
     ("ffmpeg",    "ffmpeg",              "Bundled"),
 ]

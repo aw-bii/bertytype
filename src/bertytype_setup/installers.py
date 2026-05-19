@@ -11,10 +11,12 @@ from typing import Optional
 
 import requests
 
+from bertytype_setup.constants import MODEL, VIBEVOICE_REPO
+
 OLLAMA_DOWNLOAD_URL = "https://ollama.com/download/OllamaSetup.exe"
 OLLAMA_API = "http://localhost:11434"
-MODEL = "gemma4:e2b"
-VIBEVOICE_REPO = "microsoft/VibeVoice-ASR-HF"
+
+_ollama_proc: Optional[subprocess.Popen] = None
 
 
 def _post(q: queue.Queue, event: str, *args) -> None:
@@ -73,25 +75,36 @@ def _download_file(
 
 def _ensure_ollama_service(q: queue.Queue, cancel: threading.Event) -> bool:
     """Start ollama serve if not already running. Poll up to 30s."""
+    global _ollama_proc
     try:
-        if requests.get(f"{OLLAMA_API}/api/tags", timeout=2).status_code == 200:
-            return True
-    except Exception:
+        resp = requests.get(f"{OLLAMA_API}/api/tags", timeout=2)
+        try:
+            if resp.status_code == 200:
+                return True
+        finally:
+            resp.close()
+    except (requests.ConnectionError, requests.Timeout):
         pass
     _post(q, "log", "Starting Ollama service...")
-    subprocess.Popen(
+    _ollama_proc = subprocess.Popen(
         ["ollama", "serve"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
     for _ in range(30):
         if cancel.is_set():
+            _ollama_proc.terminate()
+            _ollama_proc = None
             return False
         time.sleep(1)
         try:
-            if requests.get(f"{OLLAMA_API}/api/tags", timeout=2).status_code == 200:
-                return True
-        except Exception:
+            resp = requests.get(f"{OLLAMA_API}/api/tags", timeout=2)
+            try:
+                if resp.status_code == 200:
+                    return True
+            finally:
+                resp.close()
+        except (requests.ConnectionError, requests.Timeout):
             pass
     _post(q, "log", "Ollama service did not start within 30s")
     return False
@@ -130,28 +143,30 @@ def pull_model(q: queue.Queue, cancel: threading.Event, model: str = MODEL) -> b
             stderr=subprocess.STDOUT,
             text=True,
         )
-        if cancel.is_set():
-            proc.kill()
-            return False
-        for line in proc.stdout:
+        try:
             if cancel.is_set():
                 proc.kill()
                 return False
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                data = json.loads(line)
-                total = data.get("total", 0)
-                completed = data.get("completed", 0)
-                status = data.get("status", "")
-                if total and completed:
-                    _post(q, "step_progress", "model", completed / total)
-                if status:
-                    _post(q, "log", status)
-            except json.JSONDecodeError:
-                _post(q, "log", line)
-        proc.wait()
+            for line in proc.stdout:
+                if cancel.is_set():
+                    proc.kill()
+                    return False
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    total = data.get("total", 0)
+                    completed = data.get("completed", 0)
+                    status = data.get("status", "")
+                    if total and completed:
+                        _post(q, "step_progress", "model", completed / total)
+                    if status:
+                        _post(q, "log", status)
+                except json.JSONDecodeError:
+                    _post(q, "log", line)
+        finally:
+            proc.wait()
         return proc.returncode == 0
     except Exception as e:
         _post(q, "log", f"Model pull failed: {e}")
@@ -164,17 +179,6 @@ def _list_hf_files(repo_id: str) -> list[str]:
 
 
 def _hf_download_file(repo_id: str, filename: str, expected_hash: Optional[str] = None) -> None:
-    """Download a file from HuggingFace Hub.
-
-    Args:
-        repo_id: The HuggingFace repository ID (e.g., "microsoft/VibeVoice-ASR-HF").
-        filename: The name of the file to download.
-        expected_hash: Optional SHA256 hash for integrity verification. If provided,
-            huggingface_hub will verify the downloaded file matches this hash.
-            TODO: Hardcode the hash after first successful download or fetch from
-            a trusted source, since we cannot pre-compute it at runtime for dynamic
-            model files.
-    """
     from huggingface_hub import hf_hub_download
     hf_hub_download(repo_id=repo_id, filename=filename, hash=expected_hash)
 
@@ -196,7 +200,7 @@ def download_vibevoice(q: queue.Queue, cancel: threading.Event) -> bool:
             return False
         _post(q, "log", f"Downloading {filename} ({i + 1}/{total})...")
         try:
-            _hf_download_file(VIBEVOICE_REPO, filename, None)  # hash=None — TODO: add hardcoded hashes after first download
+            _hf_download_file(VIBEVOICE_REPO, filename, None)  # hash=None - TODO: add hardcoded hashes after first download
         except Exception as e:
             _post(q, "log", f"Failed to download {filename}: {e}")
             return False
