@@ -21,10 +21,21 @@ def _get_model():
     return _processor, _model
 
 
+def _pcm_to_wav(pcm_bytes: bytes) -> bytes:
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(16000)
+        wf.writeframes(pcm_bytes)
+    return buf.getvalue()
+
+
 def transcribe(audio_bytes: bytes) -> str:
+    wav_bytes = _pcm_to_wav(audio_bytes)
     processor, model = _get_model()
 
-    with wave.open(io.BytesIO(audio_bytes), "rb") as wf:
+    with wave.open(io.BytesIO(wav_bytes), "rb") as wf:
         if wf.getnchannels() != 1:
             raise ValueError("Audio must be mono")
         audio_data = wf.readframes(wf.getnframes())
