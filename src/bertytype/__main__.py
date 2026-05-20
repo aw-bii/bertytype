@@ -222,7 +222,6 @@ def _on_view_history(range_key: str) -> None:
         f"[{datetime.fromtimestamp(e['ts']).strftime('%Y-%m-%d %H:%M:%S')}] {e['text']}"
         for e in entries
     ]
-    EXPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     EXPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
     os.startfile(str(EXPORT_PATH))
 
@@ -414,6 +413,8 @@ def main() -> None:
     global _cfg
     with _cfg_lock:
         _cfg = cfg_module.load()
+    from bertytype.injection.history import EXPORT_PATH
+    EXPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not _run_setup_if_needed():
         return
 
