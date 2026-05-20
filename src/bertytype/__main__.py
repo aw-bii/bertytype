@@ -129,12 +129,31 @@ def _do_file_transcription(path: Path) -> None:
         tray.notify(messages.ERROR_TRANSCRIPTION_FAILED)
 
 
+def _register_hotkeys(cfg: cfg_module.Config) -> None:
+    hotkey_daemon.stop()
+    if cfg.hotkey_mode == "double_tap_toggle":
+        hotkey_daemon.register_double_tap_toggle(
+            cfg.hotkey,
+            on_start=_on_ptt_press,
+            on_stop=_on_ptt_release,
+            window=cfg.double_tap_window,
+        )
+    else:
+        hotkey_daemon.register_ptt(
+            cfg.hotkey,
+            on_press=_on_ptt_press,
+            on_release=_on_ptt_release,
+        )
+    hotkey_daemon.register(cfg.cancel_hotkey, _on_cancel)
+
+
 def _on_open_settings() -> None:
     def _save(updated_cfg: cfg_module.Config) -> None:
         global _cfg
         with _cfg_lock:
             _cfg = updated_cfg
         cfg_module.save(updated_cfg)
+        _register_hotkeys(updated_cfg)
 
     with _cfg_lock:
         current_cfg = _cfg
@@ -251,20 +270,7 @@ def main() -> None:
 
     with _cfg_lock:
         cfg = _cfg
-    if cfg.hotkey_mode == "double_tap_toggle":
-        hotkey_daemon.register_double_tap_toggle(
-            cfg.hotkey,
-            on_start=_on_ptt_press,
-            on_stop=_on_ptt_release,
-            window=cfg.double_tap_window,
-        )
-    else:
-        hotkey_daemon.register_ptt(
-            cfg.hotkey,
-            on_press=_on_ptt_press,
-            on_release=_on_ptt_release,
-        )
-    hotkey_daemon.register(cfg.cancel_hotkey, _on_cancel)
+    _register_hotkeys(cfg)
 
     tray.start(
         cfg=cfg,
