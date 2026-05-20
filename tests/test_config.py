@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 import pytest
 from bertytype import config
 
@@ -168,15 +167,16 @@ def test_show_completion_notification_defaults_true():
     assert Config().show_completion_notification is True
 
 
-def test_show_completion_notification_round_trips():
-    from bertytype.config import Config, save, load
-    import tempfile
-    from pathlib import Path
-    from unittest.mock import patch
-    with tempfile.TemporaryDirectory() as d:
-        path = Path(d) / "config.json"
-        with patch("bertytype.config.CONFIG_PATH", path):
-            cfg = Config(show_completion_notification=False)
-            save(cfg)
-            loaded = load()
-            assert loaded.show_completion_notification is False
+def test_show_completion_notification_round_trips(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "config.json")
+    cfg = config.Config(show_completion_notification=False)
+    config.save(cfg)
+    loaded = config.load()
+    assert loaded.show_completion_notification is False
+
+
+def test_show_completion_notification_invalid_falls_back_to_default(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "config.json")
+    (tmp_path / "config.json").write_text('{"show_completion_notification": "yes"}')
+    loaded = config.load()
+    assert loaded.show_completion_notification is True

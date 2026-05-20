@@ -69,7 +69,7 @@ def _validate_value(key: str, value: Any, default: Any) -> Any:
             return default
     elif key == "show_completion_notification":
         if not isinstance(value, bool):
-            logger.warning(f"Invalid show_completion_notification: {value!r}, using default {default!r}")
+            logger.warning(f"Invalid {key}: {value!r}, using default {default!r}")
             return default
     return value
 
