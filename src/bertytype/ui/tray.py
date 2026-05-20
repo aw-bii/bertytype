@@ -43,6 +43,7 @@ _tray_icon: QSystemTrayIcon | None = None
 _status     = "idle"
 _anim_frame = 0
 _anim_timer: QTimer | None = None
+_error_timer: QTimer | None = None
 
 
 def _dpr() -> float:
@@ -94,6 +95,10 @@ def _tick_animation() -> None:
     _tray_icon.setIcon(_make_icon("processing", _anim_frame))
 
 
+def _recover_from_error() -> None:
+    set_status("idle")
+
+
 def _on_status_changed(status: str) -> None:
     global _status, _anim_frame
     _status = status
@@ -106,6 +111,11 @@ def _on_status_changed(status: str) -> None:
             _anim_timer.start(200)
         else:
             _anim_timer.stop()
+    if _error_timer is not None:
+        if status == "error":
+            _error_timer.start()
+        else:
+            _error_timer.stop()
 
 
 def _on_notify_requested(msg: str) -> None:
@@ -129,7 +139,7 @@ def start(
     on_quit: Callable[[], None],
 ) -> None:
     """Register the tray icon and return immediately (non-blocking)."""
-    global _tray_icon, _anim_timer
+    global _tray_icon, _anim_timer, _error_timer
     _signals.status_changed.connect(
         _on_status_changed, Qt.ConnectionType.QueuedConnection | Qt.ConnectionType.UniqueConnection
     )
@@ -150,13 +160,20 @@ def start(
     _anim_timer = QTimer()
     _anim_timer.setInterval(200)
     _anim_timer.timeout.connect(_tick_animation)
+    _error_timer = QTimer()
+    _error_timer.setSingleShot(True)
+    _error_timer.setInterval(30_000)
+    _error_timer.timeout.connect(_recover_from_error)
 
 
 def stop() -> None:
-    global _tray_icon, _anim_timer
+    global _tray_icon, _anim_timer, _error_timer
     if _anim_timer is not None:
         _anim_timer.stop()
         _anim_timer = None
+    if _error_timer is not None:
+        _error_timer.stop()
+        _error_timer = None
     if _tray_icon is not None:
         _tray_icon.hide()
         _tray_icon = None

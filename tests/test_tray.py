@@ -54,3 +54,36 @@ def test_set_status_no_crash_without_tray_icon(qapp):
         QCoreApplication.processEvents()
     finally:
         tray_module_local._status = original
+
+
+def test_error_timer_starts_on_error_status(qapp):
+    import bertytype.ui.tray as tray_module
+    original_status = tray_module._status
+    tray_module._status = "idle"
+    try:
+        tray_module._error_timer = __import__("PySide6.QtCore", fromlist=["QTimer"]).QTimer()
+        tray_module._error_timer.setSingleShot(True)
+        tray_module._error_timer.setInterval(30_000)
+        tray_module._on_status_changed("error")
+        assert tray_module._error_timer.isActive()
+    finally:
+        tray_module._error_timer.stop()
+        tray_module._error_timer = None
+        tray_module._status = original_status
+
+
+def test_error_timer_stops_on_non_error_status(qapp):
+    import bertytype.ui.tray as tray_module
+    original_status = tray_module._status
+    from PySide6.QtCore import QTimer
+    timer = QTimer()
+    timer.setSingleShot(True)
+    timer.start(30_000)
+    tray_module._error_timer = timer
+    tray_module._status = "error"
+    try:
+        tray_module._on_status_changed("idle")
+        assert not tray_module._error_timer.isActive()
+    finally:
+        tray_module._error_timer = None
+        tray_module._status = original_status
