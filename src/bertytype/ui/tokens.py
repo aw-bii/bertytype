@@ -51,6 +51,8 @@ def _light_palette() -> dict:
 
 
 def build_qss(theme: str = "dark") -> str:
+    if theme not in ("dark", "light"):
+        raise ValueError(f"Unknown theme: {theme!r}")
     p = _light_palette() if theme == "light" else _dark_palette()
     return f"""
     * {{
@@ -100,7 +102,7 @@ def build_qss(theme: str = "dark") -> str:
     }}
     QComboBox::drop-down {{
         border: none;
-        padding-right: 10px;
+        width: 24px;
     }}
     QComboBox QAbstractItemView {{
         background: {p['bg_elevated']};

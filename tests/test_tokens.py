@@ -1,10 +1,3 @@
-def test_build_qss_returns_nonempty_string():
-    from bertytype.ui.tokens import build_qss
-    result = build_qss("dark")
-    assert isinstance(result, str)
-    assert len(result) > 100
-
-
 def test_build_qss_contains_bg_token():
     from bertytype.ui.tokens import build_qss, BG
     assert BG in build_qss("dark")
@@ -52,3 +45,8 @@ def test_build_qss_dark_contains_dark_bg():
 def test_build_qss_default_is_dark():
     from bertytype.ui.tokens import build_qss, BG
     assert BG in build_qss()
+
+
+def test_both_palettes_have_same_keys():
+    from bertytype.ui.tokens import _dark_palette, _light_palette
+    assert set(_dark_palette().keys()) == set(_light_palette().keys())
