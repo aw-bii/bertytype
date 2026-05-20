@@ -136,6 +136,7 @@ def _do_file_transcription(path: Path) -> None:
 
 def _register_hotkeys(cfg: cfg_module.Config) -> None:
     _stop_event.set()   # signal any in-progress recording to stop cleanly
+    # _stop_event is intentionally left set here; _on_ptt_press clears it on the next press.
     hotkey_daemon.stop()
     try:
         if cfg.hotkey_mode == "double_tap_toggle":

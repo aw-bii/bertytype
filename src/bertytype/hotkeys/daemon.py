@@ -1,6 +1,7 @@
 from __future__ import annotations
 import atexit
 import threading
+import time
 from typing import Callable
 import keyboard
 
@@ -9,7 +10,14 @@ _lock = threading.Lock()
 
 @atexit.register
 def _atexit_cleanup() -> None:
-    keyboard.unhook_all()
+    # Non-blocking acquire: if a registration is in-progress we skip the lock
+    # rather than risk deadlocking atexit against a hung daemon thread.
+    acquired = _lock.acquire(blocking=False)
+    try:
+        keyboard.unhook_all()
+    finally:
+        if acquired:
+            _lock.release()
 
 
 def register(hotkey: str, callback: Callable[[], None]) -> None:
@@ -33,7 +41,6 @@ def register_double_tap_toggle(
     on_stop: Callable[[], None],
     window: float = 0.3,
 ) -> None:
-    import time
     state: dict = {"last_tap": 0.0, "recording": False}
 
     def _handler(_event) -> None:

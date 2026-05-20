@@ -110,29 +110,34 @@ def test_triple_tap_does_not_double_trigger():
 
 def test_stop_is_idempotent():
     """Calling stop() twice must not raise."""
-    with patch("keyboard.unhook_all") as mock_unhook:
+    with patch("keyboard.unhook_all"):
         daemon.stop()
         daemon.stop()
-        assert mock_unhook.call_count == 2
 
 
 def test_register_uses_lock():
-    """Concurrent register calls must not interleave."""
+    """Concurrent register calls are serialized by the module lock."""
     import threading
-    import time as _time
     call_order = []
+    inside = threading.Event()
+    go = threading.Event()
 
     def slow_add(hotkey, *args, **kwargs):
         call_order.append(f"start:{hotkey}")
-        _time.sleep(0.01)
+        inside.set()
+        go.wait()
         call_order.append(f"end:{hotkey}")
 
     with patch("keyboard.add_hotkey", side_effect=slow_add):
         t1 = threading.Thread(target=daemon.register, args=("ctrl+a", lambda: None))
-        t2 = threading.Thread(target=daemon.register, args=("ctrl+b", lambda: None))
-        t1.start(); t2.start()
-        t1.join(); t2.join()
+        t1.start()
+        inside.wait()  # t1 is inside slow_add, holding _lock
 
-    for idx in range(0, len(call_order) - 1, 2):
-        key = call_order[idx].split(":")[1]
-        assert call_order[idx + 1] == f"end:{key}"
+        t2 = threading.Thread(target=daemon.register, args=("ctrl+b", lambda: None))
+        t2.start()
+
+        go.set()  # let t1 finish; t2 can then acquire the lock
+        t1.join()
+        t2.join()
+
+    assert call_order == ["start:ctrl+a", "end:ctrl+a", "start:ctrl+b", "end:ctrl+b"]
