@@ -21,14 +21,13 @@ def test_theme_changed_emits_on_switch(qapp):
     from bertytype.ui.theme_watcher import ThemeWatcher
     from PySide6.QtCore import QCoreApplication
 
-    # Starts dark, then _check sees light
     call_seq = ["dark", "light"]
     call_iter = iter(call_seq)
     with patch.object(ThemeWatcher, "_read_theme", side_effect=lambda: next(call_iter)):
         watcher = ThemeWatcher()
         received = []
         watcher.theme_changed.connect(received.append)
-        watcher._check()
+        watcher._on_system_theme_change()
         QCoreApplication.processEvents()
         assert received == ["light"]
         watcher.stop()
@@ -41,15 +40,14 @@ def test_theme_changed_does_not_emit_when_unchanged(qapp):
         watcher = ThemeWatcher()
         received = []
         watcher.theme_changed.connect(received.append)
-        watcher._check()
+        watcher._on_system_theme_change()
         QCoreApplication.processEvents()
         assert received == []
         watcher.stop()
 
 
-def test_stop_stops_timer(qapp):
+def test_stop_does_not_crash(qapp):
     from bertytype.ui.theme_watcher import ThemeWatcher
     with patch.object(ThemeWatcher, "_read_theme", return_value="dark"):
         watcher = ThemeWatcher()
         watcher.stop()
-        assert not watcher._timer.isActive()
