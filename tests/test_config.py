@@ -226,3 +226,23 @@ def test_load_corrupted_array_json(tmp_path, monkeypatch):
     result = config.load()
     assert result.hotkey == "alt"
     assert result.refine is True
+
+
+
+def test_is_safe_model_name_flags_injection():
+    from bertytype.config import _is_safe_model_name
+    assert not _is_safe_model_name("gemma4:e2b --help")
+    assert not _is_safe_model_name("model | ls")
+    assert not _is_safe_model_name("../malicious")
+
+
+def test_is_safe_model_name_accepts_valid():
+    from bertytype.config import _is_safe_model_name
+    assert _is_safe_model_name("gemma4:e2b")
+    assert _is_safe_model_name("llama3.2:latest")
+    assert _is_safe_model_name("mistral:7b-instruct")
+
+
+def test_is_safe_model_name_rejects_long():
+    from bertytype.config import _is_safe_model_name
+    assert not _is_safe_model_name("a" * 129)

@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
@@ -11,10 +12,16 @@ logger = log_module.logger
 
 _VALID_HOTKEY_MODES = {"ptt", "double_tap_toggle"}
 
+_MAX_MODEL_LEN = 128
+_SAFE_MODEL_RE = re.compile(r'^[\w:./+-]+$')
+
 
 def _is_safe_model_name(model: str) -> bool:
-    dangerous = {"../", ";", "$", "|", ">", "<", "`", "&&", "||"}
-    return not any(pattern in model for pattern in dangerous)
+    if len(model) > _MAX_MODEL_LEN:
+        return False
+    if ".." in model:
+        return False
+    return bool(_SAFE_MODEL_RE.match(model))
 
 
 @dataclass
