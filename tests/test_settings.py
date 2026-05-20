@@ -131,3 +131,48 @@ def test_save_button_is_default(qapp):
     assert len(default_buttons) == 1
     assert default_buttons[0].text() == "SAVE SETTINGS"
     dlg.close()
+
+
+def test_dialog_minimum_width_scales_with_dpi(qapp):
+    from bertytype.ui.settings import _SettingsDialog
+    from bertytype.config import Config
+    from PySide6.QtWidgets import QApplication
+    cfg = Config()
+    dlg = _SettingsDialog(cfg, on_save=lambda c: None)
+    dpi = QApplication.primaryScreen().logicalDotsPerInch()
+    expected_min = int(480 * (dpi / 96.0))
+    assert dlg.minimumWidth() >= expected_min - 1  # allow rounding
+    dlg.close()
+
+
+def test_invalid_hotkey_highlights_field(qapp):
+    from bertytype.ui.settings import _SettingsDialog
+    from bertytype.config import Config
+    from PySide6.QtGui import QKeySequence
+    cfg = Config()
+    dlg = _SettingsDialog(cfg, on_save=lambda c: None)
+    dlg._hotkey_edit.setKeySequence(QKeySequence())
+    dlg._save()
+    # The hotkey edit should have a red left-border applied
+    style = dlg._hotkey_edit.styleSheet()
+    assert "#f3727f" in style or "f3727f" in style.lower()
+    dlg.close()
+
+
+def test_error_highlight_clears_on_valid_save(qapp):
+    from bertytype.ui.settings import _SettingsDialog
+    from bertytype.config import Config
+    from PySide6.QtGui import QKeySequence
+    saved = []
+    cfg = Config()
+    dlg = _SettingsDialog(cfg, on_save=saved.append)
+    # First: trigger error
+    dlg._hotkey_edit.setKeySequence(QKeySequence())
+    dlg._save()
+    assert "#f3727f" in dlg._hotkey_edit.styleSheet()
+    # Then: fix and save
+    from bertytype.ui.settings import _str_to_qks
+    dlg._hotkey_edit.setKeySequence(_str_to_qks("alt"))
+    dlg._save()
+    # Highlight should be cleared
+    assert "#f3727f" not in dlg._hotkey_edit.styleSheet()

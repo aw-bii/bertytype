@@ -1,14 +1,19 @@
 from __future__ import annotations
 from typing import Callable
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
-    QDialog, QFormLayout, QScrollArea, QWidget, QVBoxLayout,
+    QApplication, QDialog, QFormLayout, QScrollArea, QWidget, QVBoxLayout,
     QHBoxLayout, QLabel, QComboBox, QKeySequenceEdit, QCheckBox,
     QSlider, QLineEdit, QPushButton, QFrame,
 )
 from bertytype.config import Config, _is_safe_model_name, _VALID_HOTKEY_MODES
-from bertytype.ui.tokens import TEXT_SECONDARY
+from bertytype.ui.tokens import TEXT_SECONDARY, DESTRUCTIVE
+
+_FORM_H_MARGIN = 18
+_FORM_V_MARGIN = 20
+_FORM_ROW_SPACING = 12
+_BASE_MIN_WIDTH = 480
 
 
 def _qks_to_str(ks: QKeySequence) -> str:
@@ -28,9 +33,17 @@ class _SettingsDialog(QDialog):
     def __init__(self, cfg: Config, on_save: Callable[[Config], None]) -> None:
         super().__init__()
         self.setWindowTitle("BertyType Settings")
-        self.setMinimumSize(480, 400)
+        dpi = QApplication.primaryScreen().logicalDotsPerInch()
+        min_w = int(_BASE_MIN_WIDTH * (dpi / 96.0))
+        self.setMinimumSize(min_w, 400)
         self._on_save = on_save
+        self._error_fields: list[QWidget] = []
+        self._lazy_mode = False
+        self._debounce = QTimer(self)
+        self._debounce.setSingleShot(True)
+        self._debounce.setInterval(150)
         self._build_ui(cfg)
+        self._setup_tab_order()
         self._hotkey_edit.setFocus()
 
     def _build_ui(self, cfg: Config) -> None:
@@ -43,9 +56,9 @@ class _SettingsDialog(QDialog):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         form_widget = QWidget()
         form = QFormLayout(form_widget)
-        form.setContentsMargins(18, 12, 18, 12)
+        form.setContentsMargins(_FORM_H_MARGIN, _FORM_V_MARGIN, _FORM_H_MARGIN, _FORM_V_MARGIN)
         form.setHorizontalSpacing(16)
-        form.setVerticalSpacing(10)
+        form.setVerticalSpacing(_FORM_ROW_SPACING)
 
         self._mode_combo = QComboBox()
         self._mode_combo.addItems(sorted(_VALID_HOTKEY_MODES))
@@ -63,7 +76,7 @@ class _SettingsDialog(QDialog):
         self._dtw_slider.setToolTip("Max time between two taps to trigger double-tap toggle (0.05 - 2.00s)")
         self._dtw_label = QLabel(f"{cfg.double_tap_window:.2f}s")
         self._dtw_slider.valueChanged.connect(
-            lambda v: self._dtw_label.setText(f"{v / 100:.2f}s")
+            lambda v: (self._dtw_label.setText(f"{v / 100:.2f}s"), self._debounce.start())
         )
         dtw_row = QWidget()
         dtw_layout = QHBoxLayout(dtw_row)
@@ -91,7 +104,7 @@ class _SettingsDialog(QDialog):
         self._vad_slider.setToolTip("Silence threshold for voice activity detection (0.00 = very sensitive, 1.00 = least sensitive)")
         self._vad_label = QLabel(f"{cfg.vad_threshold:.2f}")
         self._vad_slider.valueChanged.connect(
-            lambda v: self._vad_label.setText(f"{v / 100:.2f}")
+            lambda v: (self._vad_label.setText(f"{v / 100:.2f}"), self._debounce.start())
         )
         vad_row = QWidget()
         vad_layout = QHBoxLayout(vad_row)
@@ -122,47 +135,95 @@ class _SettingsDialog(QDialog):
 
         footer = QWidget()
         footer_layout = QHBoxLayout(footer)
-        footer_layout.setContentsMargins(18, 10, 18, 10)
+        footer_layout.setContentsMargins(_FORM_H_MARGIN, 10, _FORM_H_MARGIN, 10)
         self._error_lbl = QLabel()
         self._error_lbl.setObjectName("errorLabel")
         self._error_lbl.setStyleSheet("color: #e84040;")
         self._error_lbl.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self._error_lbl.setAccessibleName("Error")
         footer_layout.addWidget(self._error_lbl, 1)
-        save_btn = QPushButton("SAVE SETTINGS")
-        save_btn.setProperty("accent", True)
-        save_btn.setDefault(True)
-        save_btn.clicked.connect(self._save)
-        footer_layout.addWidget(save_btn)
+        self._save_btn = QPushButton("SAVE SETTINGS")
+        self._save_btn.setProperty("accent", True)
+        self._save_btn.setDefault(True)
+        self._save_btn.clicked.connect(self._save)
+        footer_layout.addWidget(self._save_btn)
         outer.addWidget(footer)
+
+    def _setup_tab_order(self) -> None:
+        widgets = [
+            self._mode_combo,
+            self._hotkey_edit,
+            self._dtw_slider,
+            self._cancel_edit,
+            self._model_edit,
+            self._refine_check,
+            self._vad_slider,
+            self._llm_to_edit,
+            self._delay_edit,
+            self._save_btn,
+        ]
+        for i in range(len(widgets) - 1):
+            self.setTabOrder(widgets[i], widgets[i + 1])
+
+    def load_config(self, cfg: Config) -> None:
+        self._mode_combo.setCurrentText(cfg.hotkey_mode)
+        self._hotkey_edit.setKeySequence(_str_to_qks(cfg.hotkey))
+        self._dtw_slider.setValue(round(cfg.double_tap_window * 100))
+        self._cancel_edit.setKeySequence(_str_to_qks(cfg.cancel_hotkey))
+        self._model_edit.setText(cfg.model)
+        self._refine_check.setChecked(cfg.refine)
+        self._vad_slider.setValue(round(cfg.vad_threshold * 100))
+        self._llm_to_edit.setText(str(cfg.llm_timeout))
+        self._delay_edit.setText(str(cfg.injection_delay))
+        self._error_lbl.setText("")
+        self._clear_field_errors()
+
+    def closeEvent(self, event) -> None:
+        if self._lazy_mode:
+            event.ignore()
+            self.hide()
+        else:
+            super().closeEvent(event)
 
     def _on_mode_changed(self, mode: str) -> None:
         self._form.setRowVisible(2, mode == "double_tap_toggle")
 
-    def _err(self, msg: str) -> None:
+    def _set_field_error(self, widget: QWidget) -> None:
+        widget.setStyleSheet(f"border-left: 2px solid {DESTRUCTIVE};")
+        self._error_fields.append(widget)
+
+    def _clear_field_errors(self) -> None:
+        for w in self._error_fields:
+            w.setStyleSheet("")
+        self._error_fields.clear()
+
+    def _err(self, msg: str, field: QWidget | None = None) -> None:
         self._error_lbl.setText(msg)
+        if field is not None:
+            self._set_field_error(field)
         self._error_lbl.setFocus()
 
     def _save(self) -> None:
         self._error_lbl.setText("")
+        self._clear_field_errors()
 
         hotkey = _qks_to_str(self._hotkey_edit.keySequence())
         if not hotkey:
-            self._err("Hotkey must not be empty")
+            self._err("Hotkey cannot be empty", self._hotkey_edit)
             return
 
         cancel_hotkey = _qks_to_str(self._cancel_edit.keySequence())
         if not cancel_hotkey:
-            self._err("Cancel Hotkey must not be empty")
+            self._err("Cancel Hotkey cannot be empty", self._cancel_edit)
             return
 
         model = self._model_edit.text().strip()
         if not model:
-            self._err("LLM Model must not be empty")
+            self._err("LLM Model cannot be empty", self._model_edit)
             return
 
         if not _is_safe_model_name(model):
-            self._err("Model name contains invalid characters")
+            self._err("Model name contains invalid characters", self._model_edit)
             return
 
         try:
@@ -170,7 +231,7 @@ class _SettingsDialog(QDialog):
             if not (1 <= llm_timeout <= 600):
                 raise ValueError
         except ValueError:
-            self._err("LLM Timeout must be a whole number between 1 and 600")
+            self._err("LLM Timeout must be a whole number between 1 and 600", self._llm_to_edit)
             return
 
         try:
@@ -178,7 +239,7 @@ class _SettingsDialog(QDialog):
             if not (0.0 <= injection_delay <= 5.0):
                 raise ValueError
         except ValueError:
-            self._err("Injection Delay must be a number between 0.0 and 5.0")
+            self._err("Injection Delay must be a number between 0.0 and 5.0", self._delay_edit)
             return
 
         updated = Config(
