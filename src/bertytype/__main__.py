@@ -14,6 +14,7 @@ from bertytype.llm import client as llm_client
 from bertytype.injection import injector, exporter
 from bertytype.hotkeys import daemon as hotkey_daemon
 from bertytype.ui import tray, settings, tokens
+from bertytype.ui.theme_watcher import ThemeWatcher
 from bertytype import messages
 from bertytype import logging as log_module
 
@@ -26,6 +27,7 @@ _cancel_event = threading.Event()
 _quit_event = threading.Event()
 _health = {"vibevoice": False, "ollama": False}
 _health_lock = threading.Lock()
+_theme_watcher: ThemeWatcher | None = None
 
 
 def _on_ptt_press() -> None:
@@ -162,6 +164,8 @@ def _on_open_settings() -> None:
 
 
 def _on_quit() -> None:
+    if _theme_watcher is not None:
+        _theme_watcher.stop()
     _quit_event.set()
     llm_client.shutdown()
     hotkey_daemon.stop()
@@ -251,7 +255,14 @@ def _run_setup_if_needed() -> bool:
 def main() -> None:
     log_module.init_file_logging()
     app = QApplication(sys.argv)
-    app.setStyleSheet(tokens.build_qss("dark"))
+    global _theme_watcher
+    _theme_watcher = ThemeWatcher()
+
+    def _on_theme_changed(theme: str) -> None:
+        app.setStyleSheet(tokens.build_qss(theme))
+
+    _theme_watcher.theme_changed.connect(_on_theme_changed)
+    app.setStyleSheet(tokens.build_qss(_theme_watcher.current_theme()))
     app.setQuitOnLastWindowClosed(False)
     global _cfg
     with _cfg_lock:
