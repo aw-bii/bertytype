@@ -131,6 +131,7 @@ class _SettingsDialog(QDialog):
         footer_layout.addWidget(self._error_lbl, 1)
         save_btn = QPushButton("SAVE SETTINGS")
         save_btn.setProperty("accent", True)
+        save_btn.setDefault(True)
         save_btn.clicked.connect(self._save)
         footer_layout.addWidget(save_btn)
         outer.addWidget(footer)

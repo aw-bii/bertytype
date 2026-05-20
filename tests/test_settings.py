@@ -118,3 +118,16 @@ def test_dtw_row_visible_in_double_tap_mode(qapp):
     dlg = _SettingsDialog(cfg, on_save=lambda c: None)
     assert dlg._form.isRowVisible(2)
     dlg.close()
+
+
+def test_save_button_is_default(qapp):
+    from bertytype.ui.settings import _SettingsDialog
+    from bertytype.config import Config
+    from PySide6.QtWidgets import QPushButton
+    cfg = Config()
+    dlg = _SettingsDialog(cfg, on_save=lambda c: None)
+    buttons = dlg.findChildren(QPushButton)
+    default_buttons = [b for b in buttons if b.isDefault()]
+    assert len(default_buttons) == 1
+    assert default_buttons[0].text() == "SAVE SETTINGS"
+    dlg.close()
