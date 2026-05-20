@@ -1,4 +1,5 @@
 from __future__ import annotations
+import atexit
 import sys
 import threading
 from pathlib import Path
@@ -171,13 +172,25 @@ def _on_open_settings() -> None:
     settings.open_settings(current_cfg, on_save=_save)
 
 
+def _cleanup() -> None:
+    _quit_event.set()
+    for fn, name in [
+        (llm_client.shutdown, "llm_client"),
+        (hotkey_daemon.stop, "hotkey_daemon"),
+        (tray.stop, "tray"),
+    ]:
+        try:
+            fn()
+        except Exception as e:
+            logger.warning(f"Cleanup error in {name}: {e}")
+
+atexit.register(_cleanup)
+
+
 def _on_quit() -> None:
     if _theme_watcher is not None:
         _theme_watcher.stop()
-    _quit_event.set()
-    llm_client.shutdown()
-    hotkey_daemon.stop()
-    tray.stop()
+    _cleanup()
     app = QApplication.instance()
     if app is not None:
         app.quit()
