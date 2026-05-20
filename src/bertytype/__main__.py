@@ -84,7 +84,7 @@ def _capture_and_process() -> None:
             injector.inject(text, cfg.injection_delay)
             if cfg.show_completion_notification:
                 preview = text[:60] + ("..." if len(text) > 60 else "")
-                tray.notify(f"Typed: {preview}")
+                tray.notify(preview)
         except Exception as e:
             logger.warning(f"Injection failed: {e}")
             pyperclip.copy(text)
