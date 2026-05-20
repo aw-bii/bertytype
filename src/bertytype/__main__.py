@@ -201,6 +201,30 @@ def _on_open_settings() -> None:
     _settings_dialog.activateWindow()
 
 
+def _on_view_history(range_key: str) -> None:
+    import os
+    from datetime import datetime, timedelta
+    from bertytype.injection.history import EXPORT_PATH, query
+
+    ranges = {
+        "8h": timedelta(hours=8),
+        "1d": timedelta(days=1),
+        "7d": timedelta(days=7),
+    }
+    since = datetime.now() - ranges[range_key]
+    entries = query(since)
+    if not entries:
+        tray.notify("No history in that range.")
+        return
+    lines = [
+        f"[{datetime.fromtimestamp(e['ts']).strftime('%Y-%m-%d %H:%M:%S')}] {e['text']}"
+        for e in entries
+    ]
+    EXPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    EXPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
+    os.startfile(str(EXPORT_PATH))
+
+
 def _cleanup() -> None:
     _quit_event.set()
     _stop_event.set()  # signal any in-progress recording to stop
@@ -342,6 +366,7 @@ def main() -> None:
         on_transcribe_file=_on_transcribe_file,
         on_open_settings=_on_open_settings,
         on_quit=_on_quit,
+        on_view_history=_on_view_history,
     )
     sys.exit(app.exec())
 

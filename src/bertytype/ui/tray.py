@@ -163,6 +163,7 @@ def start(
     on_transcribe_file: Callable[[], None],
     on_open_settings: Callable[[], None],
     on_quit: Callable[[], None],
+    on_view_history: Callable[[str], None] | None = None,
 ) -> None:
     global _tray_icon, _anim_timer, _error_timer, _llm_model
     _llm_model = cfg.model
@@ -175,6 +176,11 @@ def start(
     menu = QMenu()
     menu.addAction("Transcribe file...", on_transcribe_file)
     menu.addAction("Settings", on_open_settings)
+    if on_view_history is not None:
+        history_menu = menu.addMenu("View history")
+        history_menu.addAction("Last 8 hours", lambda: on_view_history("8h"))
+        history_menu.addAction("Last 24 hours", lambda: on_view_history("1d"))
+        history_menu.addAction("Last 7 days", lambda: on_view_history("7d"))
     menu.addSeparator()
     menu.addAction("Quit", on_quit)
     icon = QSystemTrayIcon()
