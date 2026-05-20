@@ -28,6 +28,7 @@ class Config:
     double_tap_window: float = 0.3
     llm_timeout: int = 30
     injection_delay: float = 0.05
+    show_completion_notification: bool = True
 
 
 def _validate_value(key: str, value: Any, default: Any) -> Any:
@@ -65,6 +66,10 @@ def _validate_value(key: str, value: Any, default: Any) -> Any:
     elif key == "injection_delay":
         if not isinstance(value, (int, float)) or value < 0:
             logger.warning(f"Invalid {key}: {value!r}, using default {default!r}")
+            return default
+    elif key == "show_completion_notification":
+        if not isinstance(value, bool):
+            logger.warning(f"Invalid show_completion_notification: {value!r}, using default {default!r}")
             return default
     return value
 

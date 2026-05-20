@@ -161,3 +161,22 @@ def test_model_name_accepts_custom_model(tmp_path, monkeypatch):
     (tmp_path / "config.json").write_text('{"model": "my-custom-model:latest"}')
     loaded = config.load()
     assert loaded.model == "my-custom-model:latest"
+
+
+def test_show_completion_notification_defaults_true():
+    from bertytype.config import Config
+    assert Config().show_completion_notification is True
+
+
+def test_show_completion_notification_round_trips():
+    from bertytype.config import Config, save, load
+    import tempfile
+    from pathlib import Path
+    from unittest.mock import patch
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "config.json"
+        with patch("bertytype.config.CONFIG_PATH", path):
+            cfg = Config(show_completion_notification=False)
+            save(cfg)
+            loaded = load()
+            assert loaded.show_completion_notification is False

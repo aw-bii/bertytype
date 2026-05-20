@@ -125,3 +125,30 @@ def test_error_targets_are_flat(qapp):
     targets = _get_target_heights("error", 0, 0.0)
     assert all(h == targets[0] for h in targets)
     assert targets[0] < 15  # flat and short
+
+
+def test_set_status_stores_error_reason(qapp):
+    import bertytype.ui.tray as t
+    original_last = t._last_error
+    original_status = t._status
+    try:
+        t._status = "idle"
+        t.set_status("error", reason="mic disconnected")
+        assert t._last_error == "mic disconnected"
+    finally:
+        t._last_error = original_last
+        t._status = original_status
+
+
+def test_set_status_reason_only_stored_for_error(qapp):
+    import bertytype.ui.tray as t
+    original_last = t._last_error
+    original_status = t._status
+    try:
+        t._last_error = "old"
+        t._status = "error"
+        t.set_status("idle", reason="should be ignored")
+        assert t._last_error == "old"
+    finally:
+        t._last_error = original_last
+        t._status = original_status
