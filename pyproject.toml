@@ -38,9 +38,10 @@ dev = [
 
 [project.gui-scripts]
 bertytype = "bertytype.__main__:main"
+bertytype-setup = "bertytype_setup.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bertytype"]
+packages = ["src/bertytype", "src/bertytype_setup"]
 
 [tool.mypy]
 python_version = "3.10"
