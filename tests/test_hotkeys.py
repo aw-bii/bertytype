@@ -106,3 +106,33 @@ def test_triple_tap_does_not_double_trigger():
         handler(event)  # tap 3 - last_tap is 0, delta = 1.15 > window: treated as first tap
     on_start.assert_called_once()
     on_stop.assert_not_called()
+
+
+def test_stop_is_idempotent():
+    """Calling stop() twice must not raise."""
+    with patch("keyboard.unhook_all") as mock_unhook:
+        daemon.stop()
+        daemon.stop()
+        assert mock_unhook.call_count == 2
+
+
+def test_register_uses_lock():
+    """Concurrent register calls must not interleave."""
+    import threading
+    import time as _time
+    call_order = []
+
+    def slow_add(hotkey, *args, **kwargs):
+        call_order.append(f"start:{hotkey}")
+        _time.sleep(0.01)
+        call_order.append(f"end:{hotkey}")
+
+    with patch("keyboard.add_hotkey", side_effect=slow_add):
+        t1 = threading.Thread(target=daemon.register, args=("ctrl+a", lambda: None))
+        t2 = threading.Thread(target=daemon.register, args=("ctrl+b", lambda: None))
+        t1.start(); t2.start()
+        t1.join(); t2.join()
+
+    for idx in range(0, len(call_order) - 1, 2):
+        key = call_order[idx].split(":")[1]
+        assert call_order[idx + 1] == f"end:{key}"

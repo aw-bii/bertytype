@@ -1,11 +1,20 @@
 from __future__ import annotations
-import time
+import atexit
+import threading
 from typing import Callable
 import keyboard
 
+_lock = threading.Lock()
+
+
+@atexit.register
+def _atexit_cleanup() -> None:
+    keyboard.unhook_all()
+
 
 def register(hotkey: str, callback: Callable[[], None]) -> None:
-    keyboard.add_hotkey(hotkey, callback)
+    with _lock:
+        keyboard.add_hotkey(hotkey, callback)
 
 
 def register_ptt(
@@ -13,8 +22,9 @@ def register_ptt(
     on_press: Callable[[], None],
     on_release: Callable[[], None],
 ) -> None:
-    keyboard.add_hotkey(hotkey, on_press, suppress=True, trigger_on_release=False)
-    keyboard.add_hotkey(hotkey, on_release, suppress=True, trigger_on_release=True)
+    with _lock:
+        keyboard.add_hotkey(hotkey, on_press, suppress=True, trigger_on_release=False)
+        keyboard.add_hotkey(hotkey, on_release, suppress=True, trigger_on_release=True)
 
 
 def register_double_tap_toggle(
@@ -23,6 +33,7 @@ def register_double_tap_toggle(
     on_stop: Callable[[], None],
     window: float = 0.3,
 ) -> None:
+    import time
     state: dict = {"last_tap": 0.0, "recording": False}
 
     def _handler(_event) -> None:
@@ -39,8 +50,10 @@ def register_double_tap_toggle(
         else:
             state["last_tap"] = now
 
-    keyboard.on_press_key(key, _handler)
+    with _lock:
+        keyboard.on_press_key(key, _handler)
 
 
 def stop() -> None:
-    keyboard.unhook_all()
+    with _lock:
+        keyboard.unhook_all()
