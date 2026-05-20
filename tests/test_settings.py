@@ -200,3 +200,20 @@ def test_settings_dialog_load_config_refreshes_fields(qapp):
     dlg.load_config(cfg2)
     assert dlg._model_edit.text() == "llama3:8b"
     dlg.close()
+
+
+def test_interactive_widgets_have_accessible_names(qapp):
+    from bertytype.ui.settings import _SettingsDialog
+    from bertytype.config import Config
+    dlg = _SettingsDialog(Config(), on_save=lambda c: None)
+    assert dlg._mode_combo.accessibleName() == "Recording Mode"
+    assert dlg._hotkey_edit.accessibleName() == "Hotkey"
+    assert dlg._dtw_slider.accessibleName() == "Double-tap Window"
+    assert dlg._cancel_edit.accessibleName() == "Cancel Hotkey"
+    assert dlg._model_edit.accessibleName() == "LLM Model"
+    assert dlg._refine_check.accessibleName() == "Refine with LLM"
+    assert dlg._vad_slider.accessibleName() == "VAD Threshold"
+    assert dlg._llm_to_edit.accessibleName() == "LLM Timeout"
+    assert dlg._delay_edit.accessibleName() == "Injection Delay"
+    assert dlg._save_btn.accessibleName() == "Save Settings"
+    dlg.close()
