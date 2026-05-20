@@ -98,6 +98,12 @@ class _SettingsDialog(QDialog):
         self._cancel_edit.setAccessibleDescription("Press the key combination to cancel an in-progress recording")
         form.addRow("Cancel Hotkey", self._cancel_edit)
 
+        self._undo_edit = QKeySequenceEdit(_str_to_qks(cfg.undo_hotkey))
+        self._undo_edit.setToolTip("Press the key combination to undo the last text injection in the target application")
+        self._undo_edit.setAccessibleName("Undo Hotkey")
+        self._undo_edit.setAccessibleDescription("Press the key combination to undo the last text injection in the target application")
+        form.addRow("Undo Hotkey", self._undo_edit)
+
         self._model_edit = QLineEdit(cfg.model)
         self._model_edit.setToolTip("Ollama model name for LLM refinement (e.g. gemma4:e2b)")
         self._model_edit.setAccessibleName("LLM Model")
@@ -175,6 +181,7 @@ class _SettingsDialog(QDialog):
             self._hotkey_edit,
             self._dtw_slider,
             self._cancel_edit,
+            self._undo_edit,
             self._model_edit,
             self._refine_check,
             self._vad_slider,
@@ -190,6 +197,7 @@ class _SettingsDialog(QDialog):
         self._hotkey_edit.setKeySequence(_str_to_qks(cfg.hotkey))
         self._dtw_slider.setValue(round(cfg.double_tap_window * 100))
         self._cancel_edit.setKeySequence(_str_to_qks(cfg.cancel_hotkey))
+        self._undo_edit.setKeySequence(_str_to_qks(cfg.undo_hotkey))
         self._model_edit.setText(cfg.model)
         self._refine_check.setChecked(cfg.refine)
         self._vad_slider.setValue(round(cfg.vad_threshold * 100))
@@ -237,6 +245,11 @@ class _SettingsDialog(QDialog):
             self._err("Cancel Hotkey cannot be empty", self._cancel_edit)
             return
 
+        undo_hotkey = _qks_to_str(self._undo_edit.keySequence())
+        if not undo_hotkey:
+            self._err("Undo Hotkey cannot be empty", self._undo_edit)
+            return
+
         model = self._model_edit.text().strip()
         if not model:
             self._err("LLM Model cannot be empty", self._model_edit)
@@ -266,6 +279,7 @@ class _SettingsDialog(QDialog):
             hotkey=hotkey,
             hotkey_mode=self._mode_combo.currentText(),
             cancel_hotkey=cancel_hotkey,
+            undo_hotkey=undo_hotkey,
             model=model,
             refine=self._refine_check.isChecked(),
             vad_threshold=self._vad_slider.value() / 100,

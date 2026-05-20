@@ -217,3 +217,15 @@ def test_interactive_widgets_have_accessible_names(qapp):
     assert dlg._delay_edit.accessibleName() == "Injection Delay"
     assert dlg._save_btn.accessibleName() == "Save Settings"
     dlg.close()
+
+
+def test_dialog_saves_undo_hotkey(qapp):
+    from bertytype.ui.settings import _SettingsDialog, _str_to_qks
+    from bertytype.config import Config
+    saved = []
+    cfg = Config(undo_hotkey="ctrl+z")
+    dlg = _SettingsDialog(cfg, on_save=saved.append)
+    dlg._undo_edit.setKeySequence(_str_to_qks("ctrl+alt+z"))
+    dlg._save()
+    assert len(saved) == 1
+    assert saved[0].undo_hotkey == "ctrl+alt+z"
