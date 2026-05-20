@@ -29,6 +29,7 @@ class Config:
     llm_timeout: int = 30
     injection_delay: float = 0.05
     show_completion_notification: bool = True
+    undo_hotkey: str = "ctrl+z"
 
 
 def _validate_value(key: str, value: Any, default: Any) -> Any:
@@ -69,6 +70,10 @@ def _validate_value(key: str, value: Any, default: Any) -> Any:
             return default
     elif key == "show_completion_notification":
         if not isinstance(value, bool):
+            logger.warning(f"Invalid {key}: {value!r}, using default {default!r}")
+            return default
+    elif key == "undo_hotkey":
+        if not isinstance(value, str) or not value.strip():
             logger.warning(f"Invalid {key}: {value!r}, using default {default!r}")
             return default
     return value

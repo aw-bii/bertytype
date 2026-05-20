@@ -180,3 +180,22 @@ def test_show_completion_notification_invalid_falls_back_to_default(tmp_path, mo
     (tmp_path / "config.json").write_text('{"show_completion_notification": "yes"}')
     loaded = config.load()
     assert loaded.show_completion_notification is True
+
+
+def test_undo_hotkey_default():
+    assert config.Config().undo_hotkey == "ctrl+z"
+
+
+def test_undo_hotkey_round_trips(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "config.json")
+    cfg = config.Config(undo_hotkey="ctrl+alt+z")
+    config.save(cfg)
+    loaded = config.load()
+    assert loaded.undo_hotkey == "ctrl+alt+z"
+
+
+def test_undo_hotkey_invalid_empty_defaults(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "config.json")
+    (tmp_path / "config.json").write_text('{"undo_hotkey": ""}')
+    loaded = config.load()
+    assert loaded.undo_hotkey == "ctrl+z"
