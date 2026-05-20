@@ -35,16 +35,16 @@ def test_cleanup_sets_quit_event():
 
 def test_cleanup_stops_subsystems_in_order():
     import bertytype.__main__ as main_mod
-    from unittest.mock import patch, MagicMock, call
+    from unittest.mock import patch
     call_log = []
     with patch.object(main_mod, "llm_client") as m_llm, \
          patch.object(main_mod, "hotkey_daemon") as m_hk, \
          patch.object(main_mod, "tray") as m_tray:
-        m_llm.shutdown.side_effect = lambda: call_log.append("llm")
         m_hk.stop.side_effect = lambda: call_log.append("hk")
+        m_llm.shutdown.side_effect = lambda: call_log.append("llm")
         m_tray.stop.side_effect = lambda: call_log.append("tray")
         main_mod._cleanup()
-    assert call_log == ["llm", "hk", "tray"]
+    assert call_log == ["hk", "llm", "tray"]
 
 
 def test_cleanup_survives_subsystem_exception():

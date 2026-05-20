@@ -174,9 +174,15 @@ def _on_open_settings() -> None:
 
 def _cleanup() -> None:
     _quit_event.set()
+    _stop_event.set()  # signal any in-progress recording to stop
+    if _theme_watcher is not None:
+        try:
+            _theme_watcher.stop()
+        except Exception as e:
+            logger.warning(f"Cleanup error in theme_watcher: {e}")
     for fn, name in [
-        (llm_client.shutdown, "llm_client"),
         (hotkey_daemon.stop, "hotkey_daemon"),
+        (llm_client.shutdown, "llm_client"),
         (tray.stop, "tray"),
     ]:
         try:
@@ -184,12 +190,8 @@ def _cleanup() -> None:
         except Exception as e:
             logger.warning(f"Cleanup error in {name}: {e}")
 
-atexit.register(_cleanup)
-
 
 def _on_quit() -> None:
-    if _theme_watcher is not None:
-        _theme_watcher.stop()
     _cleanup()
     app = QApplication.instance()
     if app is not None:
@@ -274,6 +276,7 @@ def _run_setup_if_needed() -> bool:
 
 
 def main() -> None:
+    atexit.register(_cleanup)
     log_module.init_file_logging()
     app = QApplication(sys.argv)
     global _theme_watcher
