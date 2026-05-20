@@ -29,6 +29,7 @@ _cancel_event = threading.Event()
 _quit_event = threading.Event()
 _health = {"vibevoice": False, "ollama": False}
 _health_lock = threading.Lock()
+_pull_in_progress = False
 _theme_watcher: ThemeWatcher | None = None
 _settings_dialog: "settings._SettingsDialog | None" = None
 
@@ -323,6 +324,9 @@ def _check_health() -> dict[str, bool]:
 
 def _maybe_pull_model(model: str) -> None:
     import subprocess
+    global _pull_in_progress
+    if _pull_in_progress:
+        return
     try:
         with requests.get("http://localhost:11434/api/tags", timeout=5) as resp:
             if resp.status_code != 200:
@@ -334,15 +338,26 @@ def _maybe_pull_model(model: str) -> None:
         return
 
     def _pull() -> None:
+        global _pull_in_progress
         tray.notify(f"Pulling {model} - this may take a few minutes...")
         logger.info(f"Pulling Ollama model: {model}")
-        result = subprocess.run(["ollama", "pull", model], capture_output=True)
-        if result.returncode == 0:
-            tray.notify(f"{model} ready")
-            logger.info(f"Model {model} pulled successfully")
-        else:
-            logger.warning(f"ollama pull failed: {result.stderr.decode('utf-8', errors='replace')}")
+        try:
+            result = subprocess.run(
+                ["ollama", "pull", model],
+                capture_output=True,
+                timeout=600,
+            )
+            if result.returncode == 0:
+                tray.notify(f"{model} ready")
+                logger.info(f"Model {model} pulled successfully")
+            else:
+                logger.warning(
+                    f"ollama pull failed: {result.stderr.decode('utf-8', errors='replace')}"
+                )
+        finally:
+            _pull_in_progress = False
 
+    _pull_in_progress = True
     threading.Thread(target=_pull, daemon=True).start()
 
 
