@@ -1,6 +1,7 @@
 import threading
 import numpy as np
 import sounddevice as sd
+from bertytype.audio import amplitude
 
 SAMPLE_RATE = 16000
 CHANNELS = 1
@@ -14,6 +15,7 @@ def start_recording(stop_event: threading.Event, cancel_event: threading.Event |
 
     def _callback(indata: np.ndarray, frame_count: int, time_info, status) -> None:
         frames.append(indata.copy())
+        amplitude.update(indata)
 
     def _cancel_watcher() -> None:
         if cancel_event is not None:
@@ -33,6 +35,8 @@ def start_recording(stop_event: threading.Event, cancel_event: threading.Event |
         callback=_callback,
     ):
         stop_event.wait()
+
+    amplitude.reset()
 
     if not frames:
         return b""
