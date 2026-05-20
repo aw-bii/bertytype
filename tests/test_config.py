@@ -218,3 +218,11 @@ def test_active_profile_invalid_type_defaults_none(tmp_path, monkeypatch):
     (tmp_path / "config.json").write_text('{"active_profile": 123}')
     loaded = config.load()
     assert loaded.active_profile is None
+
+
+def test_load_corrupted_array_json(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "config.json")
+    (tmp_path / "config.json").write_text("[]", encoding="utf-8")
+    result = config.load()
+    assert result.hotkey == "alt"
+    assert result.refine is True

@@ -97,11 +97,13 @@ def load() -> Config:
     if CONFIG_PATH.exists():
         try:
             data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise TypeError(f"Expected dict, got {type(data).__name__}")
             # Silently drop unknown/removed keys (e.g. stt_timeout from old configs)
             known_keys = set(asdict(Config()).keys())
             data = {k: v for k, v in data.items() if k in known_keys}
             return _validate(data)
-        except (json.JSONDecodeError, TypeError, KeyError) as e:
+        except (json.JSONDecodeError, TypeError, KeyError, AttributeError) as e:
             logger.warning(f"Config load failed: {e}, using defaults")
     return Config()
 
