@@ -29,6 +29,7 @@ _quit_event = threading.Event()
 _health = {"vibevoice": False, "ollama": False}
 _health_lock = threading.Lock()
 _theme_watcher: ThemeWatcher | None = None
+_settings_dialog: "settings._SettingsDialog | None" = None
 
 
 def _on_ptt_press() -> None:
@@ -160,6 +161,8 @@ def _register_hotkeys(cfg: cfg_module.Config) -> None:
 
 
 def _on_open_settings() -> None:
+    global _settings_dialog
+
     def _save(updated_cfg: cfg_module.Config) -> None:
         global _cfg
         with _cfg_lock:
@@ -169,7 +172,17 @@ def _on_open_settings() -> None:
 
     with _cfg_lock:
         current_cfg = _cfg
-    settings.open_settings(current_cfg, on_save=_save)
+
+    if _settings_dialog is None:
+        _settings_dialog = settings._SettingsDialog(current_cfg, on_save=_save)
+        _settings_dialog._lazy_mode = True
+    else:
+        _settings_dialog._on_save = _save
+        _settings_dialog.load_config(current_cfg)
+
+    _settings_dialog.show()
+    _settings_dialog.raise_()
+    _settings_dialog.activateWindow()
 
 
 def _cleanup() -> None:

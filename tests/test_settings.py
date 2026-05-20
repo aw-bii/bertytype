@@ -176,3 +176,27 @@ def test_error_highlight_clears_on_valid_save(qapp):
     dlg._save()
     # Highlight should be cleared
     assert "#f3727f" not in dlg._hotkey_edit.styleSheet()
+
+
+def test_settings_dialog_can_be_shown_and_hidden(qapp):
+    from bertytype.ui.settings import _SettingsDialog
+    from bertytype.config import Config
+    cfg = Config()
+    dlg = _SettingsDialog(cfg, on_save=lambda c: None)
+    dlg.show()
+    assert dlg.isVisible()
+    dlg.hide()
+    assert not dlg.isVisible()
+    dlg.close()
+
+
+def test_settings_dialog_load_config_refreshes_fields(qapp):
+    from bertytype.ui.settings import _SettingsDialog
+    from bertytype.config import Config
+    cfg1 = Config(model="gemma4:e2b")
+    cfg2 = Config(model="llama3:8b")
+    dlg = _SettingsDialog(cfg1, on_save=lambda c: None)
+    assert dlg._model_edit.text() == "gemma4:e2b"
+    dlg.load_config(cfg2)
+    assert dlg._model_edit.text() == "llama3:8b"
+    dlg.close()
