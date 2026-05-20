@@ -233,6 +233,7 @@ def update_profiles_menu(
             past_separator = True
         elif past_separator:
             _profiles_menu.removeAction(action)
+            action.deleteLater()
     for name in profile_names:
         action = _profiles_menu.addAction(name, lambda n=name: on_switch(n))
         action.setCheckable(True)
