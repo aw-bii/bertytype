@@ -32,9 +32,8 @@ def test_transcribe_rejects_empty_bytes():
         vibevoice_local.transcribe(b"")
 
 
-def test_transcribe_handles_pcm_input():
-    """Raw PCM (as capture.py produces) no longer crashes - _pcm_to_wav wraps it."""
-    from unittest.mock import patch
+def test_transcribe_does_not_crash_on_pcm_before_model_load():
+    """Raw PCM is wrapped by _pcm_to_wav before model load, so wave.Error is avoided."""
     pcm = _make_pcm_bytes()
     with patch.object(vibevoice_local, "_get_model", side_effect=ImportError("no transformers")):
         with pytest.raises(ImportError):
@@ -48,4 +47,4 @@ def test_pcm_to_wav_produces_valid_wav():
         assert wf.getnchannels() == 1
         assert wf.getsampwidth() == 2
         assert wf.getframerate() == 16000
-        assert wf.getnframes() > 0
+        assert wf.getnframes() == len(pcm) // 2
