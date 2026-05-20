@@ -351,9 +351,12 @@ def _maybe_pull_model(model: str) -> None:
                 tray.notify(f"{model} ready")
                 logger.info(f"Model {model} pulled successfully")
             else:
-                logger.warning(
-                    f"ollama pull failed: {result.stderr.decode('utf-8', errors='replace')}"
-                )
+                stderr = result.stderr.decode("utf-8", errors="replace")
+                logger.warning(f"ollama pull failed: {stderr}")
+                tray.notify(f"Failed to pull {model}.")
+        except subprocess.TimeoutExpired:
+            logger.warning(f"ollama pull timed out after 600s for {model}")
+            tray.notify(f"Pull timed out for {model}.")
         finally:
             _pull_in_progress = False
 
