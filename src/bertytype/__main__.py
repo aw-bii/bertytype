@@ -176,10 +176,11 @@ def _on_open_settings() -> None:
         global _cfg
         with _cfg_lock:
             current = _cfg
-        # Preserve show_completion_notification which is not exposed in the settings dialog
+        # Preserve fields not exposed in the settings dialog
         updated_cfg = dataclasses.replace(
             updated_cfg,
             show_completion_notification=current.show_completion_notification,
+            active_profile=current.active_profile,
         )
         with _cfg_lock:
             _cfg = updated_cfg
@@ -223,6 +224,57 @@ def _on_view_history(range_key: str) -> None:
     EXPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     EXPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
     os.startfile(str(EXPORT_PATH))
+
+
+def _on_save_profile_as() -> None:
+    from bertytype import profiles
+    from PySide6.QtWidgets import QInputDialog
+    name, ok = QInputDialog.getText(None, "Save Profile", "Profile name:")
+    if not ok:
+        return
+    name = name.strip()
+    if not profiles.is_valid_name(name):
+        tray.notify("Invalid name. Use letters, digits, spaces, hyphens, or underscores (max 64 chars).")
+        return
+    with _cfg_lock:
+        cfg = _cfg
+    try:
+        profiles.save_profile(name, cfg)
+    except Exception as e:
+        logger.warning(f"Failed to save profile {name!r}: {e}")
+        tray.notify(f"Could not save profile '{name}'.")
+        return
+    _refresh_profiles_menu()
+    tray.notify(f"Profile '{name}' saved.")
+
+
+def _on_switch_profile(name: str) -> None:
+    from bertytype import profiles
+    import dataclasses
+    try:
+        new_cfg = profiles.load_profile(name)
+    except Exception as e:
+        logger.warning(f"Failed to load profile {name!r}: {e}")
+        tray.notify(f"Could not load profile '{name}'.")
+        return
+    global _cfg
+    with _cfg_lock:
+        _cfg = new_cfg
+    cfg_module.save(new_cfg)
+    _register_hotkeys(new_cfg)
+    _refresh_profiles_menu()
+    tray.notify(f"Switched to '{name}'.")
+
+
+def _refresh_profiles_menu() -> None:
+    from bertytype import profiles
+    with _cfg_lock:
+        active = _cfg.active_profile
+    tray.update_profiles_menu(
+        profiles.list_profiles(),
+        active,
+        _on_switch_profile,
+    )
 
 
 def _cleanup() -> None:
@@ -367,7 +419,9 @@ def main() -> None:
         on_open_settings=_on_open_settings,
         on_quit=_on_quit,
         on_view_history=_on_view_history,
+        on_save_profile_as=_on_save_profile_as,
     )
+    _refresh_profiles_menu()
     sys.exit(app.exec())
 
 

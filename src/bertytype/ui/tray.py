@@ -41,6 +41,7 @@ _status     = "idle"
 _anim_frame = 0
 _anim_timer: QTimer | None = None
 _error_timer: QTimer | None = None
+_profiles_menu: "QMenu | None" = None
 _last_error: str = ""
 _llm_model: str = ""
 _current_heights: list[float] = [16.0, 32.0, 48.0, 32.0, 16.0]
@@ -164,8 +165,9 @@ def start(
     on_open_settings: Callable[[], None],
     on_quit: Callable[[], None],
     on_view_history: Callable[[str], None] | None = None,
+    on_save_profile_as: Callable[[], None] | None = None,
 ) -> None:
-    global _tray_icon, _anim_timer, _error_timer, _llm_model
+    global _tray_icon, _anim_timer, _error_timer, _profiles_menu, _llm_model
     _llm_model = cfg.model
     _signals.status_changed.connect(
         _on_status_changed, Qt.ConnectionType.QueuedConnection | Qt.ConnectionType.UniqueConnection
@@ -181,6 +183,10 @@ def start(
         history_menu.addAction("Last 8 hours", lambda: on_view_history("8h"))
         history_menu.addAction("Last 24 hours", lambda: on_view_history("1d"))
         history_menu.addAction("Last 7 days", lambda: on_view_history("7d"))
+    if on_save_profile_as is not None:
+        _profiles_menu = menu.addMenu("Profiles")
+        _profiles_menu.addAction("Save current as profile...", on_save_profile_as)
+        _profiles_menu.addSeparator()
     menu.addSeparator()
     menu.addAction("Quit", on_quit)
     icon = QSystemTrayIcon()
@@ -200,7 +206,8 @@ def start(
 
 
 def stop() -> None:
-    global _tray_icon, _anim_timer, _error_timer
+    global _tray_icon, _anim_timer, _error_timer, _profiles_menu
+    _profiles_menu = None
     if _anim_timer is not None:
         _anim_timer.stop()
         _anim_timer = None
@@ -210,3 +217,23 @@ def stop() -> None:
     if _tray_icon is not None:
         _tray_icon.hide()
         _tray_icon = None
+
+
+def update_profiles_menu(
+    profile_names: list[str],
+    active: str | None,
+    on_switch: Callable[[str], None],
+) -> None:
+    """Rebuild the profiles submenu with current profile list."""
+    if _profiles_menu is None:
+        return
+    past_separator = False
+    for action in list(_profiles_menu.actions()):
+        if action.isSeparator():
+            past_separator = True
+        elif past_separator:
+            _profiles_menu.removeAction(action)
+    for name in profile_names:
+        action = _profiles_menu.addAction(name, lambda n=name: on_switch(n))
+        action.setCheckable(True)
+        action.setChecked(name == active)

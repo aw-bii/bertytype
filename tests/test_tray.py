@@ -152,3 +152,14 @@ def test_set_status_reason_only_stored_for_error(qapp):
     finally:
         t._last_error = original_last
         t._status = original_status
+
+
+def test_update_profiles_menu_no_crash_when_menu_is_none(qapp):
+    import bertytype.ui.tray as t
+    original = t._profiles_menu
+    t._profiles_menu = None
+    try:
+        t.update_profiles_menu(["Work", "Personal"], "Work", lambda n: None)
+        # Must not raise
+    finally:
+        t._profiles_menu = original
