@@ -17,7 +17,7 @@ from bertytype.hotkeys import daemon as hotkey_daemon
 from bertytype.ui import tray, settings, tokens
 from bertytype.ui.theme_watcher import ThemeWatcher
 from bertytype import messages
-from bertytype import logging as log_module
+from bertytype import applog as log_module
 
 logger = log_module.logger
 

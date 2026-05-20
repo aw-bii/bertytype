@@ -3,7 +3,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
 
-from bertytype import logging as log_module
+from bertytype import applog as log_module
 
 CONFIG_PATH = Path.home() / ".bertytype" / "config.json"
 
