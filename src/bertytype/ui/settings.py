@@ -113,6 +113,10 @@ class _SettingsDialog(QDialog):
             if lbl_item and lbl_item.widget():
                 lbl_item.widget().setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
 
+        self._form = form
+        self._mode_combo.currentTextChanged.connect(self._on_mode_changed)
+        self._on_mode_changed(cfg.hotkey_mode)
+
         scroll.setWidget(form_widget)
         outer.addWidget(scroll, 1)
 
@@ -130,6 +134,9 @@ class _SettingsDialog(QDialog):
         save_btn.clicked.connect(self._save)
         footer_layout.addWidget(save_btn)
         outer.addWidget(footer)
+
+    def _on_mode_changed(self, mode: str) -> None:
+        self._form.setRowVisible(2, mode == "double_tap_toggle")
 
     def _err(self, msg: str) -> None:
         self._error_lbl.setText(msg)

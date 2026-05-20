@@ -99,3 +99,22 @@ def test_dialog_save_on_save_exception_shows_error(qapp):
     dlg._save()
     assert "disk full" in dlg._error_lbl.text()
     assert dlg.result() != 1  # dialog did not accept
+
+
+def test_dtw_row_hidden_in_ptt_mode(qapp):
+    from bertytype.ui.settings import _SettingsDialog
+    from bertytype.config import Config
+    cfg = Config(hotkey_mode="ptt")
+    dlg = _SettingsDialog(cfg, on_save=lambda c: None)
+    # row 2 should be hidden
+    assert not dlg._form.isRowVisible(2)
+    dlg.close()
+
+
+def test_dtw_row_visible_in_double_tap_mode(qapp):
+    from bertytype.ui.settings import _SettingsDialog
+    from bertytype.config import Config
+    cfg = Config(hotkey_mode="double_tap_toggle")
+    dlg = _SettingsDialog(cfg, on_save=lambda c: None)
+    assert dlg._form.isRowVisible(2)
+    dlg.close()
