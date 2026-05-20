@@ -30,6 +30,7 @@ class Config:
     injection_delay: float = 0.05
     show_completion_notification: bool = True
     undo_hotkey: str = "ctrl+z"
+    active_profile: str | None = None
 
 
 def _validate_value(key: str, value: Any, default: Any) -> Any:
@@ -76,6 +77,10 @@ def _validate_value(key: str, value: Any, default: Any) -> Any:
         if not isinstance(value, str) or not value.strip():
             logger.warning(f"Invalid {key}: {value!r}, using default {default!r}")
             return default
+    elif key == "active_profile":
+        if value is not None and not isinstance(value, str):
+            logger.warning(f"Invalid {key}: {value!r}, using default None")
+            return None
     return value
 
 

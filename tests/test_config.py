@@ -199,3 +199,22 @@ def test_undo_hotkey_invalid_empty_defaults(tmp_path, monkeypatch):
     (tmp_path / "config.json").write_text('{"undo_hotkey": ""}')
     loaded = config.load()
     assert loaded.undo_hotkey == "ctrl+z"
+
+
+def test_active_profile_defaults_none():
+    assert config.Config().active_profile is None
+
+
+def test_active_profile_round_trips(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "config.json")
+    cfg = config.Config(active_profile="Dictation")
+    config.save(cfg)
+    loaded = config.load()
+    assert loaded.active_profile == "Dictation"
+
+
+def test_active_profile_invalid_type_defaults_none(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "config.json")
+    (tmp_path / "config.json").write_text('{"active_profile": 123}')
+    loaded = config.load()
+    assert loaded.active_profile is None
