@@ -61,7 +61,8 @@ def test_query_returns_sorted_oldest_first():
     assert result[1]["text"] == "second"
 
 
-def test_append_prunes_entries_older_than_7_days():
+def test_append_prunes_entries_older_than_7_days(monkeypatch):
+    monkeypatch.setattr(history, "_COMPACTION_THRESHOLD", 0)
     old_ts = int(time.time()) - 8 * 24 * 3600
     history.HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
     history.HISTORY_PATH.write_text(
@@ -88,3 +89,17 @@ def test_query_missing_file_returns_empty():
     assert not history.HISTORY_PATH.exists()
     result = history.query(datetime.now() - timedelta(hours=1))
     assert result == []
+
+
+def test_append_does_not_rewrite_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(history, "HISTORY_PATH", tmp_path / "history.jsonl")
+    monkeypatch.setattr(history, "_MAX_AGE_SECONDS", 86400 * 7)
+
+    history.append("first entry")
+    first_mtime = (tmp_path / "history.jsonl").stat().st_mtime_ns
+
+    time.sleep(0.01)
+
+    history.append("second entry")
+    lines = (tmp_path / "history.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 2
