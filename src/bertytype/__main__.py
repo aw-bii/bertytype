@@ -13,7 +13,7 @@ from bertytype import config as cfg_module
 from bertytype.audio import capture, vad, reader
 from bertytype.stt import engine as stt_engine, vibevoice, vibevoice_local
 from bertytype.llm import client as llm_client
-from bertytype.injection import injector, exporter
+from bertytype.injection import injector, exporter, history
 from bertytype.hotkeys import daemon as hotkey_daemon
 from bertytype.ui import tray, settings, tokens
 from bertytype.ui.theme_watcher import ThemeWatcher
@@ -89,6 +89,7 @@ def _capture_and_process() -> None:
         text = _apply_llm_refinement(text, cfg, health)
         try:
             injector.inject(text, cfg.injection_delay)
+            history.append(text)
             if cfg.show_completion_notification:
                 preview = text[:60] + ("..." if len(text) > 60 else "")
                 tray.notify(preview)
@@ -133,6 +134,7 @@ def _do_file_transcription(path: Path) -> None:
         text = _apply_llm_refinement(text, cfg, health)
         out_path = exporter.save_transcript(text, path)
         pyperclip.copy(text)
+        history.append(text)
         tray.notify(messages.INFO_TRANSCRIPTION_COMPLETE.format(name=out_path.name))
         tray.set_status("idle")
     except Exception as e:
