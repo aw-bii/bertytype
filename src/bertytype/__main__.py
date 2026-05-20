@@ -251,7 +251,7 @@ def _run_setup_if_needed() -> bool:
 def main() -> None:
     log_module.init_file_logging()
     app = QApplication(sys.argv)
-    app.setStyleSheet(tokens.build_qss())
+    app.setStyleSheet(tokens.build_qss("dark"))
     app.setQuitOnLastWindowClosed(False)
     global _cfg
     with _cfg_lock:
