@@ -4,6 +4,7 @@ import sys
 import threading
 from pathlib import Path
 import pyperclip
+import pyautogui
 import requests
 
 from PySide6.QtWidgets import QApplication, QFileDialog
@@ -47,6 +48,10 @@ def _on_ptt_release() -> None:
 def _on_cancel() -> None:
     _cancel_event.set()
     _stop_event.set()
+
+
+def _on_undo() -> None:
+    pyautogui.hotkey("ctrl", "z")
 
 
 def _apply_llm_refinement(text: str, cfg, health: dict) -> str:
@@ -155,6 +160,7 @@ def _register_hotkeys(cfg: cfg_module.Config) -> None:
                 on_release=_on_ptt_release,
             )
         hotkey_daemon.register(cfg.cancel_hotkey, _on_cancel)
+        hotkey_daemon.register(cfg.undo_hotkey, _on_undo)
     except Exception:
         hotkey_daemon.stop()
         raise
@@ -164,7 +170,15 @@ def _on_open_settings() -> None:
     global _settings_dialog
 
     def _save(updated_cfg: cfg_module.Config) -> None:
+        import dataclasses
         global _cfg
+        with _cfg_lock:
+            current = _cfg
+        # Preserve show_completion_notification which is not exposed in the settings dialog
+        updated_cfg = dataclasses.replace(
+            updated_cfg,
+            show_completion_notification=current.show_completion_notification,
+        )
         with _cfg_lock:
             _cfg = updated_cfg
         cfg_module.save(updated_cfg)
